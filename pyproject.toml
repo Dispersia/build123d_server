@@ -1,0 +1,21 @@
+[project]
+name = "b123d-server"
+version = "0.1.0"
+description = "Hot-reloading server for build123d objects with in-browser viewer via yacv-server"
+readme = "README.md"
+authors = [
+    { name = "Aaron Housh", email = "dispersias@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "build123d>=0.10.0",
+    "click>=8.3.2",
+    "yacv-server>=0.10.15",
+]
+
+[project.scripts]
+b123d-server = "b123d_server.server:run"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"

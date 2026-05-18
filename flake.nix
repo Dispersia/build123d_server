@@ -52,7 +52,7 @@
             done
             unset VIRTUAL_ENV
 
-            exec uv run --project ${self} b123d-server "$@"
+            exec uv run --project ${self} --directory "$PWD" b123d-server "$@"
           '';
         };
       });

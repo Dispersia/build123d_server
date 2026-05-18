@@ -7,7 +7,6 @@ import time
 import traceback
 import types
 
-# Prevent YACV from auto-starting a server on import
 os.environ["YACV_DISABLE_SERVER"] = "1"
 
 import click
@@ -31,12 +30,10 @@ class Server:
         self.model_file = model_file.resolve()
         self.poll_interval = poll_interval
 
-        # Ensure cwd and model dir are in the module search path
         cwd = str(pathlib.Path.cwd().resolve())
         if cwd not in sys.path:
             sys.path.insert(0, cwd)
 
-        # Exclude stdlib dirs from file watching
         for prefix in {sys.prefix, sys.base_prefix}:
             platlibdir = (
                 pathlib.Path(prefix)

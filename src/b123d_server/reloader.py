@@ -7,8 +7,6 @@ import types
 
 class Reloader:
     def __init__(self, ignore_dirs: list[pathlib.Path] | None = None):
-        # Modules loaded before the reloader is created are considered
-        # system/library modules and are not watched for changes.
         self.initial_modules = set(sys.modules.keys())
         self.ignore_paths = [
             pathlib.Path(path).resolve()

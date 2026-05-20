@@ -34,6 +34,10 @@ class Server:
         if cwd not in sys.path:
             sys.path.insert(0, cwd)
 
+        user_site = os.environ.get("B123D_USER_SITE")
+        if user_site and user_site not in sys.path:
+            sys.path.append(user_site)
+
         for prefix in {sys.prefix, sys.base_prefix}:
             platlibdir = (
                 pathlib.Path(prefix)

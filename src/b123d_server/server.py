@@ -48,6 +48,21 @@ class Server:
         self.last_files: set[pathlib.Path] | None = None
         self.last_updated: datetime.datetime | None = None
         self.last_error: list[str] | None = None
+        self.last_attempt_mtime: datetime.datetime | None = None
+
+    @staticmethod
+    def _top_error(e: Exception) -> str:
+        lines = traceback.format_exception_only(type(e), e)
+        return lines[-1].strip() if lines else str(e)
+
+    def _report_error(self, message: str, e: Exception) -> None:
+        error = traceback.format_exception(e)
+        if error != self.last_error:
+            self.last_error = error
+            print(f"{message}: {e}", file=sys.stderr)
+            for line in error:
+                print(f"  {line}", end="", file=sys.stderr)
+            print(f"ERROR:{self._top_error(e)}", flush=True)
 
     def import_model_module(self) -> types.ModuleType | None:
         import_name = self.model_file.stem
@@ -59,6 +74,9 @@ class Server:
         if dir_str not in sys.path:
             sys.path.insert(0, dir_str)
 
+        self.last_attempt_mtime = datetime.datetime.fromtimestamp(
+            self.model_file.stat().st_mtime
+        )
         importlib.invalidate_caches()
         try:
             model_module = importlib.import_module(import_name)
@@ -69,12 +87,7 @@ class Server:
         except Exception as e:
             self.last_files = None
             self.last_updated = None
-            error = traceback.format_exception(e)
-            if error != self.last_error:
-                self.last_error = error
-                print(f"Error importing {import_name}: {e}", file=sys.stderr)
-                for line in error:
-                    print(f"  {line}", end="", file=sys.stderr)
+            self._report_error(f"Error importing {import_name}", e)
             return None
 
     def load_objects(self, model_module: types.ModuleType) -> dict[str, object] | None:
@@ -90,42 +103,40 @@ class Server:
             else:
                 return {"part": objects}
         except Exception as e:
-            print(f"Error loading objects: {e}", file=sys.stderr)
-            for line in traceback.format_exception(e):
-                print(f"  {line}", end="", file=sys.stderr)
+            self._report_error("Error loading objects", e)
             return None
 
     def check_updated(self) -> bool:
-        if not self.last_files or not self.last_updated:
+        if self.last_attempt_mtime is None:
             return True
-        modtime = self.reloader.most_recent(self.last_files)
-        return modtime != self.last_updated
-
-    def reload(self) -> types.ModuleType | None:
-        self.reloader.unload()
-        return self.import_model_module()
+        current = datetime.datetime.fromtimestamp(self.model_file.stat().st_mtime)
+        if current != self.last_attempt_mtime:
+            return True
+        if self.last_files and self.last_updated:
+            return self.reloader.most_recent(self.last_files) != self.last_updated
+        return False
 
     def serve(self):
         view_server = YACV()
         view_server.start()
 
-        model_module = None
-        first_load = True
+        first_show = True
+        first_attempt = True
 
         while True:
             try:
-                updated = self.check_updated()
-
-                if not model_module:
-                    print(f"Loading {self.model_file}")
-                    model_module = self.import_model_module()
-                elif updated:
-                    print(f"Change detected, reloading {self.model_file}")
-                    model_module = self.reload()
-                else:
+                if not self.check_updated():
                     time.sleep(self.poll_interval)
                     continue
 
+                if first_attempt:
+                    print(f"Loading {self.model_file}")
+                    first_attempt = False
+                else:
+                    print(f"Change detected, reloading {self.model_file}")
+                    self.reloader.unload()
+
+                model_module = self.import_model_module()
                 if not model_module:
                     time.sleep(self.poll_interval)
                     continue
@@ -135,19 +146,20 @@ class Server:
                     time.sleep(self.poll_interval)
                     continue
 
-                if updated:
-                    if not first_load:
-                        view_server.clear()
-                    first_load = False
-                    view_server.show(
-                        *objects.values(), names=list(objects.keys())
-                    )
-
-                time.sleep(self.poll_interval)
+                if not first_show:
+                    view_server.clear()
+                first_show = False
+                view_server.show(*objects.values(), names=list(objects.keys()))
+                print("OK", flush=True)
 
             except KeyboardInterrupt:
                 print("\nExiting")
                 sys.exit(0)
+            except Exception as e:
+                print(f"Unexpected server error: {e}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+
+            time.sleep(self.poll_interval)
 
 
 @click.command(no_args_is_help=True)

@@ -13,20 +13,22 @@
           inherit system;
         };
 
-        libPath = pkgs.lib.makeLibraryPath [
-          pkgs.libglvnd
-          pkgs.mesa
+        libPath = pkgs.lib.optionalString pkgs.stdenv.isLinux (
+          pkgs.lib.makeLibraryPath [
+            pkgs.libglvnd
+            pkgs.mesa
 
-          pkgs.libx11
-          pkgs.libxext
-          pkgs.libxrender
-          pkgs.libice
-          pkgs.libsm
+            pkgs.libx11
+            pkgs.libxext
+            pkgs.libxrender
+            pkgs.libice
+            pkgs.libsm
 
-          pkgs.stdenv.cc.cc.lib
+            pkgs.stdenv.cc.cc.lib
 
-          pkgs.expat
-        ];
+            pkgs.expat
+          ]
+        );
 
       in
       {
@@ -40,7 +42,9 @@
 
           text = ''
             export UV_PROJECT_ENVIRONMENT="$HOME/.cache/build123d-server/.venv"
+            ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             export LD_LIBRARY_PATH="${libPath}:''${LD_LIBRARY_PATH:-}"
+            ''}
 
             user_venv="''${VIRTUAL_ENV:-.venv}"
             for sp in "$user_venv"/lib/python*/site-packages; do

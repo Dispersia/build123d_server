@@ -40,7 +40,7 @@
 
           text = ''
             export UV_PROJECT_ENVIRONMENT="$HOME/.cache/build123d-server/.venv"
-            export LD_LIBRARY_PATH="${libPath}:${LD_LIBRARY_PATH:-}"
+            export LD_LIBRARY_PATH="${libPath}:''${LD_LIBRARY_PATH:-}"
 
             user_venv="''${VIRTUAL_ENV:-.venv}"
             for sp in "$user_venv"/lib/python*/site-packages; do
